@@ -69,3 +69,32 @@ class series_decomp_multi(nn.Module):
         sea = sum(res) / len(res)
         moving_mean = sum(moving_mean) / len(moving_mean)
         return sea, moving_mean
+    
+class EncoderLayer(nn.Module):
+    """
+    Autoformer encoder layer with the progressive decomposition architecture
+    """
+
+    def __init__(self, attention, d_model, d_ff=None, moving_avg=25, dropout=0.1, activation="relu"):
+        super(EncoderLayer, self).__init__()
+        d_ff = d_ff or 4 * d_model
+        self.attention = attention
+        self.conv1 = nn.Conv1d(in_channels=d_model, out_channels=d_ff, kernel_size=1, bias=False)
+        self.conv2 = nn.Conv1d(in_channels=d_ff, out_channels=d_model, kernel_size=1, bias=False)
+        self.decomp1 = series_decomp(moving_avg)
+        self.decomp2 = series_decomp(moving_avg)
+        self.dropout = nn.Dropout(dropout)
+        self.activation = F.relu if activation == "relu" else F.gelu
+
+    def forward(self, x, attn_mask=None):
+        new_x, attn = self.attention(
+            x, x, x,
+            attn_mask=attn_mask
+        )
+        x = x + self.dropout(new_x)
+        x, _ = self.decomp1(x)
+        y = x
+        y = self.dropout(self.activation(self.conv1(y.transpose(-1, 1))))
+        y = self.dropout(self.conv2(y).transpose(-1, 1))
+        res, _ = self.decomp2(x + y)
+        return res, attn
