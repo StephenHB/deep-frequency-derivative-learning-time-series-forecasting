@@ -47,3 +47,25 @@ class series_decomp(nn.Module):
         moving_mean = self.moving_avg(x)
         res = x - moving_mean
         return res, moving_mean
+    
+class series_decomp_multi(nn.Module):
+    """
+    Multiple Series decomposition block from FEDformer
+    """
+
+    def __init__(self, kernel_size):
+        super(series_decomp_multi, self).__init__()
+        self.kernel_size = kernel_size
+        self.series_decomp = [series_decomp(kernel) for kernel in kernel_size]
+
+    def forward(self, x):
+        moving_mean = []
+        res = []
+        for func in self.series_decomp:
+            sea, moving_avg = func(x)
+            moving_mean.append(moving_avg)
+            res.append(sea)
+
+        sea = sum(res) / len(res)
+        moving_mean = sum(moving_mean) / len(moving_mean)
+        return sea, moving_mean
