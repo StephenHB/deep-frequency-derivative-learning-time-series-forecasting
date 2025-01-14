@@ -33,3 +33,17 @@ class moving_avg(nn.Module):
         x = self.avg(x.permute(0, 2, 1))
         x = x.permute(0, 2, 1)
         return x
+    
+class series_decomp(nn.Module):
+    """
+    Series decomposition block
+    """
+
+    def __init__(self, kernel_size):
+        super(series_decomp, self).__init__()
+        self.moving_avg = moving_avg(kernel_size, stride=1)
+
+    def forward(self, x):
+        moving_mean = self.moving_avg(x)
+        res = x - moving_mean
+        return res, moving_mean
